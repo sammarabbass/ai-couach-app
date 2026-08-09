@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { Scale, Dumbbell, TrendingUp, TrendingDown, CalendarDays } from 'lucide-react'
 import { progressApi } from '../api/progress.api'
 import Card, { CardEyebrow } from '../components/ui/Card'
 import Input from '../components/ui/Input'
@@ -7,8 +8,8 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 
 const TYPE_CONFIG = {
-  weight: { label: 'Weight', unit: 'kg', placeholder: 'e.g. 72.5' },
-  workout: { label: 'Workout', unit: '%', placeholder: 'e.g. 80' },
+  weight: { label: 'Weight', unit: 'kg', placeholder: 'e.g. 72.5', icon: Scale },
+  workout: { label: 'Workout', unit: '%', placeholder: 'e.g. 80', icon: Dumbbell },
 }
 
 export default function Progress() {
@@ -85,22 +86,37 @@ export default function Progress() {
       <p className="label-eyebrow">Track</p>
       <h1 className="font-display text-3xl sm:text-4xl mb-6 sm:mb-8">Progress</h1>
 
-      <Card className="mb-6">
-        <div className="flex items-baseline justify-between gap-4 flex-wrap">
-          <CardEyebrow>Weight trend</CardEyebrow>
-          {latest && (
-            <div className="text-right">
-              <span className="font-display text-2xl">{latest.value}</span>
-              <span className="text-xs text-muted ml-1">kg</span>
-              {delta !== null && delta !== 0 && (
-                <span className="ml-2 text-xs text-muted">
-                  {delta > 0 ? '+' : ''}{delta} kg vs last
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+      {/* Quick stats — most important numbers, upfront */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-[11px] sm:text-xs text-muted uppercase tracking-wide">Latest</p>
+          <p className="font-display text-xl sm:text-2xl mt-1">{latest ? latest.value : '—'}</p>
+          <p className="text-[11px] sm:text-xs text-muted">kg</p>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-[11px] sm:text-xs text-muted uppercase tracking-wide">Change</p>
+          <p className="font-display text-xl sm:text-2xl mt-1 flex items-center justify-center gap-1">
+            {delta === null ? (
+              '—'
+            ) : (
+              <>
+                {delta > 0 && <TrendingUp size={16} className="text-muted" />}
+                {delta < 0 && <TrendingDown size={16} className="text-muted" />}
+                {Math.abs(delta)}
+              </>
+            )}
+          </p>
+          <p className="text-[11px] sm:text-xs text-muted">kg vs last</p>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-[11px] sm:text-xs text-muted uppercase tracking-wide">Logged</p>
+          <p className="font-display text-xl sm:text-2xl mt-1">{entries.length}</p>
+          <p className="text-[11px] sm:text-xs text-muted">entries</p>
+        </Card>
+      </div>
 
+      <Card className="mb-6">
+        <CardEyebrow>Weight trend</CardEyebrow>
         {loading ? (
           <div className="h-48 sm:h-56 flex items-center justify-center">
             <Spinner />
@@ -127,14 +143,25 @@ export default function Progress() {
         <form onSubmit={onSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted uppercase tracking-wide">Type</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value, value: '' })}
-              className="rounded-sm border border-line bg-surface px-3 py-2.5 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A36]"
-            >
-              <option value="weight">Weight</option>
-              <option value="workout">Workout</option>
-            </select>
+            <div className="flex gap-2">
+              {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
+                const Icon = cfg.icon
+                const active = form.type === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm({ ...form, type: key, value: '' })}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-sm border px-3 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A36] ${
+                      active ? 'border-[#FF5A36] bg-[#FF5A36]/10 text-[#FF5A36]' : 'border-line bg-surface text-muted'
+                    }`}
+                  >
+                    <Icon size={15} />
+                    {cfg.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <Input
             label={`${activeConfig.label} (${activeConfig.unit})`}
@@ -167,22 +194,33 @@ export default function Progress() {
         <Card>
           <CardEyebrow>Recent entries</CardEyebrow>
           <div className="mt-2 divide-y divide-line">
-            {recentEntries.map((e) => (
-              <div key={e._id || e.itemId} className="flex items-center justify-between gap-3 py-3 text-sm">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="shrink-0 rounded-sm bg-surface border border-line px-2 py-0.5 text-xs uppercase tracking-wide text-muted">
-                    {e.itemType}
-                  </span>
-                  <span className="truncate text-muted">{e.metadata?.notes || '—'}</span>
+            {recentEntries.map((e) => {
+              const Icon = TYPE_CONFIG[e.itemType]?.icon
+              return (
+                <div key={e._id || e.itemId} className="flex items-center justify-between gap-3 py-3 text-sm">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="shrink-0 flex items-center gap-1 rounded-sm bg-surface border border-line px-2 py-0.5 text-xs uppercase tracking-wide text-muted">
+                      {Icon && <Icon size={11} />}
+                      {e.itemType}
+                    </span>
+                    <span className="truncate text-muted">{e.metadata?.notes || '—'}</span>
+                  </div>
+                  <div className="shrink-0 flex items-baseline gap-2">
+                    <span className="font-medium">
+                      {e.percent}
+                      {e.itemType === 'weight' ? ' kg' : '%'}
+                    </span>
+                    <span className="text-xs text-muted flex items-center gap-1">
+                      <CalendarDays size={11} />
+                      {new Date(e.metadata?.date || e.updatedAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <div className="shrink-0 flex items-baseline gap-2">
-                  <span className="font-medium">{e.percent}{e.itemType === 'weight' ? ' kg' : '%'}</span>
-                  <span className="text-xs text-muted">
-                    {new Date(e.metadata?.date || e.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
       )}
